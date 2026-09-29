@@ -47,7 +47,7 @@ class AlarmGUI:
         ttk.Button(bar, text="2. Jalankan Alarm (Mac/Win)", command=self.start_alarm).pack(side="left", padx=4)
         ttk.Button(bar, text="Stop", command=self.stop_alarm).pack(side="left")
         ttk.Button(bar, text="3. Export .alm instan", command=self.export_alm).pack(side="left", padx=4)
-        self.btn_win = ttk.Button(bar, text="3. Kirim ke FreeAlarmClock (Windows)", command=self.kirim_windows)
+        self.btn_win = ttk.Button(bar, text="4. Kirim via klik Add (legacy, jangan dipakai)", command=self.kirim_windows)
         self.btn_win.pack(side="left", padx=4)
         if sys.platform != "win32":
             self.btn_win.state(["disabled"])
@@ -242,7 +242,11 @@ class AlarmGUI:
             messagebox.showerror("Gagal export", str(e))
 
     def kirim_windows(self):
-        # Panggil fungsi otomasi pywinauto dari excel_to_freealarm
+        if not messagebox.askokcancel("Jalur lama",
+            "Jalur klik-Add ini TIDAK mengisi jam/label otomatis (hanya buka dialog).\n"
+            "Yang 09:59 (None) itu dialog kosong yang ter-OK.\n\nLanjut pakai jalur lama?\n"
+            "Disarankan BATAL lalu pakai 'Export .alm instan' + File > Restore."):
+            return
         try:
             from excel_to_freealarm import run_otomasi
         except Exception as e:
