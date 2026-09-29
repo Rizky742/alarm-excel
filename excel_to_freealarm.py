@@ -379,23 +379,91 @@ def inspect_gui():
     print("\nTIP: Buka dialog Add manual, lalu jalankan lagi dengan --inspect-dialog")
     print("untuk melihat kontrol dialog 'Alarm settings'.")
 
-def tambah_satu_alarm_gui(main_win, alarm, delay=1.0):
+def _dialog_terbuka(main_win):
+    """True bila ada top-level window baru selain main (kemungkinan dialog Add)."""
+    try:
+        from pywinauto import Desktop
+        wins = Desktop(backend="uia").windows(visible_only=True)
+        mh = None
+        try:
+            mh = main_win.handle
+        except Exception:
+            pass
+        for w in wins:
+            try:
+                if mh and w.handle == mh:
+                    continue
+                t = w.window_text()
+            except Exception:
+                continue
+            if "Free Alarm Clock" in t or t.strip() == "":
+                return True
+        # fallback: window aktif bukan main
+        try:
+            from pywinauto import Application
+            app = Application(backend="uia").connect(title_re=".*Free Alarm Clock.*", timeout=3)
+            act = app.active()
+            return act.handle != mh
+        except Exception:
+            return False
+    except Exception:
+        return False
+
+def tambah_satu_alarm_gui(main_win, alarm, delay=1.0, log=None):
     """Otomasi 1 alarm. Kembalikan True jika dialog Add berhasil dibuka.
     Disesuaikan dengan FreeAlarmClock v5.x English UI.
     """
     import time
     from pywinauto.keyboard import send_keys
+    def say(m):
+        print(m)
+        if log:
+            try:
+                log(m + "\n")
+            except Exception:
+                pass
     opened = False
-    # 1. Klik Add (tombol di toolbar utama)
-    try:
-        btn = main_win.child_window(title_re="^Add.*", control_type="Button")
-        btn.wait("enabled", timeout=5)
-        btn.click_input()
-        opened = True
-    except Exception as e:
-        print(f"  [GUI] Tombol Add tidak ketemu ({e}). Tekan Insert manual / klik Add.")
-        # fallback: coba hotkey -addalarm sudah dibuka? pakai Alt+N / Insert
-        send_keys("{INSERT}")
+    err = ""
+    # 1. Klik Add — coba beberapa varian (toolbar FreeAlarmClock beda-beda)
+    for title_re, ctype in [("^Add.*", "Button"), (".*Add.*", "Button"),
+                            (".*Add.*", "SplitButton"), (".*Add.*", None)]:
+        try:
+            kw = {"title_re": title_re}
+            if ctype:
+                kw["control_type"] = ctype
+            btn = main_win.child_window(**kw)
+            btn.wait("enabled visible ready", timeout=3)
+            try:
+                btn.click_input()
+            except Exception:
+                btn.click()
+            opened = True
+            say(f"  [GUI] Klik Add OK ({title_re}/{ctype})")
+            break
+        except Exception as e:
+            err = str(e)[:160]
+    if not opened:
+        # dump tombol yang ada untuk diagnosa
+        try:
+            btns = [b.window_text() for b in main_win.descendants(control_type="Button")]
+            say(f"  [GUI] Tombol Add tidak ketemu ({err}). Tombol yang ada: {btns[:12]}")
+        except Exception as e2:
+            say(f"  [GUI] Tombol Add tidak ketemu ({err}). Dump gagal: {e2}")
+        # fallback keyboard: Insert (shortcut Add di FreeAlarmClock) lalu Alt+A (menu Alarm>Add)
+        for keys in ("{INSERT}", "%a"):
+            try:
+                main_win.set_focus()
+                time.sleep(0.3)
+                send_keys(keys)
+                say(f"  [GUI] Coba keyboard {keys}")
+                time.sleep(delay)
+                # cek apakah dialog muncul
+                if _dialog_terbuka(main_win):
+                    opened = True
+                    say(f"  [GUI] Dialog terbuka via keyboard {keys}")
+                    break
+            except Exception as e3:
+                say(f"  [GUI] Keyboard {keys} gagal: {e3}")
     time.sleep(delay)
 
     try:
@@ -539,8 +607,8 @@ def run_otomasi(alarms, delay, on_progress=None, interactive=True, log=None):
             pass
     ok_count, fail = 0, []
     for i, a in enumerate(alarms, 1):
-        print(f"\n[{i}/{total}] ({i*100//total}%) {a['waktu']} - {a['label']} ({a['tipe']} {a['hari']})")
-        ok = tambah_satu_alarm_gui(main, a, delay=delay)
+        say(f"\n[{i}/{total}] ({i*100//total}%) {a['waktu']} - {a['label']} ({a['tipe']} {a['hari']})")
+        ok = tambah_satu_alarm_gui(main, a, delay=delay, log=say)
         ok_count += 1 if ok else 0
         if not ok:
             fail.append(a)
