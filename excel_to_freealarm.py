@@ -124,6 +124,60 @@ def _is_truthy(v):
     s = str(v).strip().lower()
     return s in ("1", "v", "x", "✓", "ya", "y", "yes", "true", "ok", "•", "*")
 
+def _baca_format_amora(ws):
+    """Format roster RS: judul 'ALARM ...', kolom KAMAR + sub-kolom EWS
+    (8 JAM/4 JAM/1 JAM) + RESIKO JATUH (RT/RR/TR). Tiap sel jam terisi =
+    1 alarm 'EWS > KAMAR x' / 'RJ > KAMAR x'. Kembalikan list atau None."""
+    rows = list(ws.iter_rows(values_only=True))
+    hkamar = hr = None
+    for ri, r in enumerate(rows):
+        if not r:
+            continue
+        cells = [str(c).strip().lower() if c not in (None, "") else "" for c in r]
+        if any(c == "kamar" for c in cells):
+            hkamar = ri
+        if any("resiko jatuh" in c or c == "resikojatuh" for c in cells):
+            hr = ri
+            break
+    if hkamar is None or hr is None:
+        return None
+    # baris sub-header tepat di bawah header (8 JAM/4 JAM/1 JAM/RT/RR/TR)
+    sub = rows[hr + 1] if hr + 1 < len(rows) else []
+    ews_cols, rj_cols = [], []
+    for ci, c in enumerate(sub):
+        s = str(c).strip().lower() if c not in (None, "") else ""
+        if "jam" in s:
+            ews_cols.append(ci)
+        elif s in ("rt", "rr", "tr"):
+            rj_cols.append(ci)
+    if not ews_cols and not rj_cols:
+        return None
+    # kolom kamar = indeks sel 'kamar' di baris header
+    kcol = next(i for i, c in enumerate(
+        [str(x).strip().lower() if x not in (None, "") else "" for x in rows[hkamar]]) if c == "kamar")
+    hasil = []
+    for i, r in enumerate(rows[hr + 2:], start=hr + 3):
+        if not r or kcol >= len(r):
+            continue
+        kamar = str(r[kcol]).strip() if r[kcol] not in (None, "") else ""
+        if not kamar or kamar.lower() in ("kamar",):
+            continue
+        for ci in ews_cols:
+            if ci < len(r) and r[ci] not in (None, "") and str(r[ci]).strip():
+                w = normalisasi_waktu(r[ci])
+                if w:
+                    hasil.append({"baris": i, "waktu": w, "label": f"EWS > KAMAR {kamar}",
+                                  "hari": "", "tipe": "Once", "suara": "twinkle",
+                                  "pesan": f"EWS > KAMAR {kamar}", "weekdays_en": []})
+        for ci in rj_cols:
+            if ci < len(r) and r[ci] not in (None, "") and str(r[ci]).strip():
+                w = normalisasi_waktu(r[ci])
+                if w:
+                    hasil.append({"baris": i, "waktu": w, "label": f"RJ > KAMAR {kamar}",
+                                  "hari": "", "tipe": "Once", "suara": "cuckoo",
+                                  "pesan": f"RJ > KAMAR {kamar}", "weekdays_en": []})
+    return hasil if hasil else None
+
 def baca_excel(path, sheet=None):
     """Parser DINAMIS: urutan kolom bebas, nama header fleksibel (ID/EN), opsional.
 
@@ -143,6 +197,14 @@ def baca_excel(path, sheet=None):
         sys.exit(1)
     wb = openpyxl.load_workbook(path, data_only=True)
     ws = wb[sheet] if sheet and sheet in wb.sheetnames else (wb["Jadwal"] if "Jadwal" in wb.sheetnames else wb.active)
+    # Format roster AMORA (KAMAR + 8/4/1 JAM + RT/RR/TR) didahulukan
+    try:
+        amora = _baca_format_amora(ws)
+    except Exception:
+        amora = None
+    if amora:
+        print(f"[INFO] Format AMORA terdeteksi: {len(amora)} alarm (EWS/RJ per kamar)")
+        return amora
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
         return []
@@ -286,11 +348,13 @@ def normalisasi_waktu(s):
                 return f"{h:02d}:{m:02d}"
         return None
     s = str(s).strip()
-    # dukung datetime dari openpyxl, "07:00", "7:00", "07.00", "07:00:00"
+    # dukung datetime dari openpyxl, "07:00", "7:00", "07.00", "07:00:00", "24.00" (=00:00)
     if re.match(r"^\d{1,2}[:.]\d{2}(:\d{2})?$", s):
         s = s.replace(".", ":")
         parts = s.split(":")
         h, m = int(parts[0]), int(parts[1])
+        if h == 24 and m == 0:
+            return "00:00"
         if 0 <= h <= 23 and 0 <= m <= 59:
             return f"{h:02d}:{m:02d}"
         return None
