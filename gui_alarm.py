@@ -46,6 +46,7 @@ class AlarmGUI:
         ttk.Button(bar, text="1. Cek Validasi", command=self.muat).pack(side="left")
         ttk.Button(bar, text="2. Jalankan Alarm (Mac/Win)", command=self.start_alarm).pack(side="left", padx=4)
         ttk.Button(bar, text="Stop", command=self.stop_alarm).pack(side="left")
+        ttk.Button(bar, text="3. Export .alm instan", command=self.export_alm).pack(side="left", padx=4)
         self.btn_win = ttk.Button(bar, text="3. Kirim ke FreeAlarmClock (Windows)", command=self.kirim_windows)
         self.btn_win.pack(side="left", padx=4)
         if sys.platform != "win32":
@@ -216,6 +217,29 @@ class AlarmGUI:
         self.running = False
         self.status.set("Berhenti.")
         self.log_msg("Alarm dihentikan.\n")
+
+    def export_alm(self):
+        if not self.alarms:
+            self.muat()
+        if not self.alarms:
+            return
+        out = filedialog.asksaveasfilename(defaultextension=".alm",
+            filetypes=[("Alarm backup", "*.alm")], initialfile="hasil.alm")
+        if not out:
+            return
+        try:
+            from excel_to_alm import alarm_ke_baris
+            lines = []
+            for i, a in enumerate(self.alarms, 1):
+                lines.append(alarm_ke_baris(a, datetime.now()))
+                self.set_progress(i, len(self.alarms))
+            Path(out).write_text("\ufeff" + "\r\n".join(lines) + "\r\n", encoding="utf-8")
+            self.log_msg(f"OK: {len(lines)} alarm -> {out} (100%)\n")
+            self.log_msg("Lanjut di FreeAlarmClock: File > Restore > pilih file itu.\n")
+            messagebox.showinfo("Selesai 100%",
+                f"{len(lines)} alarm tersimpan ke:\n{out}\n\nBuka FreeAlarmClock > File > Restore > pilih file itu.")
+        except Exception as e:
+            messagebox.showerror("Gagal export", str(e))
 
     def kirim_windows(self):
         # Panggil fungsi otomasi pywinauto dari excel_to_freealarm
