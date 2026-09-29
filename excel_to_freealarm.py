@@ -449,24 +449,48 @@ def hitung_alarm_di_app():
     except Exception:
         return None
 
-def run_otomasi(alarms, delay, on_progress=None):
-    """on_progress(done, total, alarm, ok) dipanggil tiap 1 alarm selesai (untuk progress bar GUI/CLI)."""
+def run_otomasi(alarms, delay, on_progress=None, interactive=True, log=None):
+    """on_progress(done, total, alarm, ok) dipanggil tiap 1 alarm selesai (untuk progress bar GUI/CLI).
+    interactive=False untuk dipanggil dari GUI (tanpa input ENTER yang bikin stuck di .exe windowed).
+    log(msg) opsional untuk kirim pesan ke GUI."""
+    def say(m):
+        print(m)
+        if log:
+            try:
+                log(m + "\n")
+            except Exception:
+                pass
     try:
         from pywinauto import Application
         import time
     except ImportError:
-        print("Butuh Windows + pip install pywinauto")
+        say("Butuh Windows + pip install pywinauto")
+        if not interactive:
+            raise
         sys.exit(1)
-    app = Application(backend="uia").connect(title_re=".*Free Alarm Clock.*")
-    main = app.window(title_re=".*Free Alarm Clock.*")
-    main.set_focus()
-    total = len(alarms)
-    print(f"Terhubung: {main.window_text()!r} — {total} alarm akan ditambahkan.")
-    print("PENTING: Jangan sentuh mouse/keyboard selama otomasi. Tutup dulu aplikasi lain.")
+    say("Menghubungi Free Alarm Clock (timeout 10 detik)...")
     try:
-        input("Tekan ENTER untuk mulai...")
-    except EOFError:
-        pass
+        app = Application(backend="uia").connect(title_re=".*Free Alarm Clock.*", timeout=10)
+    except Exception as e:
+        say(f"GAGAL terhubung: {e}")
+        say(" Checklist: 1) FreeAlarmClock.exe sudah dibuka? 2) Judul jendela 'Free Alarm Clock'?")
+        say(" 3) Bahasa UI English? 4) Jalankan AlarmExcel sebagai Administrator bila perlu.")
+        if not interactive:
+            raise
+        sys.exit(1)
+    main = app.window(title_re=".*Free Alarm Clock.*")
+    try:
+        main.set_focus()
+    except Exception as e:
+        say(f"Gagal fokus jendela: {e}")
+    total = len(alarms)
+    say(f"Terhubung: {main.window_text()!r} — {total} alarm akan ditambahkan.")
+    say("PENTING: dialog Add akan dibuka satu-satu. Tekan OK di tiap dialog untuk simpan.")
+    if interactive:
+        try:
+            input("Tekan ENTER untuk mulai...")
+        except (EOFError, OSError):
+            pass
     ok_count, fail = 0, []
     for i, a in enumerate(alarms, 1):
         print(f"\n[{i}/{total}] ({i*100//total}%) {a['waktu']} - {a['label']} ({a['tipe']} {a['hari']})")

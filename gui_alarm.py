@@ -233,13 +233,18 @@ class AlarmGUI:
     def _kirim_thread(self):
         total = len(self.alarms)
         self.root.after(0, self.set_progress, 0, total)
+        self.root.after(0, lambda: self.log_msg("Menghubungi Free Alarm Clock (timeout 10 dtk)...\n"))
         def cb(done, total_, alarm, ok):
             self.root.after(0, self.set_progress, done, total_)
             self.root.after(0, self.log_msg,
-                f"[{'OK' if ok else 'GAGAL'} {done}/{total_} {done*100//total_}%] {alarm['waktu']} {alarm['label']}\n")
+                f"[{'OK' if ok else 'GAGAL'} {done}/{total_} {done*100//total_}%] {alarm['waktu']} {alarm['label']}\n"
+                + ("  -> Tekan OK di dialog untuk simpan, lanjut otomatis.\n" if ok else ""))
+        def log_cb(m):
+            self.root.after(0, self.log_msg, m)
         try:
             from excel_to_freealarm import run_otomasi
-            ok_count = run_otomasi(self.alarms, delay=1.0, on_progress=cb)
+            ok_count = run_otomasi(self.alarms, delay=1.0, on_progress=cb,
+                                   interactive=False, log=log_cb)
             self.root.after(0, self.set_progress, total, total)
             self.root.after(0, lambda: self.log_msg(
                 f"\n===== SELESAI 100%: {ok_count}/{total} dialog Add terbuka =====\n"
