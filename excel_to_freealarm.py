@@ -167,14 +167,14 @@ def _baca_format_amora(ws):
                 w = normalisasi_waktu(r[ci])
                 if w:
                     hasil.append({"baris": i, "waktu": w, "label": f"EWS > KAMAR {kamar}",
-                                  "hari": "", "tipe": "Once", "suara": "twinkle",
+                                  "hari": "", "tipe": "Once", "suara": f"EWS {kamar}.mp3",
                                   "pesan": f"EWS > KAMAR {kamar}", "weekdays_en": []})
         for ci in rj_cols:
             if ci < len(r) and r[ci] not in (None, "") and str(r[ci]).strip():
                 w = normalisasi_waktu(r[ci])
                 if w:
                     hasil.append({"baris": i, "waktu": w, "label": f"RJ > KAMAR {kamar}",
-                                  "hari": "", "tipe": "Once", "suara": "cuckoo",
+                                  "hari": "", "tipe": "Once", "suara": f"RJ {kamar}.mp3",
                                   "pesan": f"RJ > KAMAR {kamar}", "weekdays_en": []})
     return hasil if hasil else None
 
