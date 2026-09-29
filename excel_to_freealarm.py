@@ -491,42 +491,165 @@ def tambah_satu_alarm_gui(main_win, alarm, delay=1.0, log=None):
         if dlg is None:
             # fallback: ambil window aktif
             dlg = app.active()
-        print(f"  [GUI] Dialog: {dlg.window_text()!r}")
-        dlg.set_focus()
-        time.sleep(0.5)
-
-        # --- Isi Occurs (One Time / Daily / Weekly / Monthly / Yearly) ---
-        # mapping UI: "One Time" untuk Once
-        occurs_label = {"Once": "One Time", "Daily": "Daily", "Weekly": "Weekly",
-                        "Monthly": "Monthly", "Yearly": "Yearly"}[alarm["tipe"]]
+        say(f"  [GUI] Dialog: {dlg.window_text()!r}")
         try:
-            combo = dlg.child_window(control_type="ComboBox").wrapper_object()
-            combo.select(occurs_label)
-            print(f"  [GUI] Occurs -> {occurs_label}")
-        except Exception as e:
-            print(f"  [GUI] ComboBox Occurs tidak auto ({e}), pilih manual: {occurs_label}")
-            send_keys("{TAB}")
-
-        time.sleep(0.4)
-        # --- Isi Time (HH:MM) ---
-        try:
-            # cari edit time: biasanya 2 spin / 1 edit
-            edits = dlg.descendants(control_type="Edit")
-            # heuristik: isi time lalu label
-            print(f"  [GUI] Ditemukan {len(edits)} Edit box, isi manual Time={alarm['waktu']} Label={alarm['label']}")
+            dlg.set_focus()
         except Exception:
             pass
+        time.sleep(0.5)
 
-        # Panduan manual yang selalu tampil agar user bisa lanjut walau selector beda versi:
-        print(f"  >>> ISI MANUAL di dialog: Time={alarm['waktu']} | Occurs={occurs_label} | "
-              f"Hari={','.join(alarm['weekdays_en'])} | Label={alarm['label']} | Sound={alarm['suara']}")
-        print("  >>> Tekan Enter/OK untuk simpan, script lanjut 2 detik...")
-        time.sleep(2)
-        # Jangan auto-OK agar tidak salah simpan — user tekan OK, atau uncomment baris bawah:
-        # send_keys("{ENTER}")
-        return opened
+        # --- 1. Occurs: radio One time/Daily/Weekly/Monthly/Yearly (lihat foto) ---
+        occurs_label = {"Once": "One time", "Daily": "Daily", "Weekly": "Weekly",
+                        "Monthly": "Monthly", "Yearly": "Yearly"}[alarm["tipe"]]
+        try:
+            r = dlg.child_window(title=occurs_label, control_type="RadioButton")
+            r.wait("enabled visible ready", timeout=3)
+            r.click_input()
+            say(f"  [GUI] Occurs -> {occurs_label}")
+        except Exception as e:
+            say(f"  [GUI] Radio Occurs gagal ({str(e)[:120]}), lanjut manual: {occurs_label}")
+        time.sleep(0.3)
+
+        # --- 2. Time HH:MM (edit di grup Time, foto: 10:03) ---
+        try:
+            edits = dlg.descendants(control_type="Edit")
+            # Time edit = edit pertama/terpendek berisi jam
+            tedit = None
+            for e in edits:
+                try:
+                    txt = e.window_text()
+                except Exception:
+                    txt = ""
+                import re as _re
+                if _re.match(r"^\d{1,2}:\d{2}", txt):
+                    tedit = e
+                    break
+            if tedit is None and edits:
+                tedit = edits[0]
+            if tedit is not None:
+                tedit.set_focus()
+                tedit.set_edit_text(alarm["waktu"])
+                say(f"  [GUI] Time -> {alarm['waktu']}")
+            else:
+                say("  [GUI] Edit Time tidak ketemu")
+        except Exception as e:
+            say(f"  [GUI] Time gagal ({str(e)[:120]})")
+        time.sleep(0.3)
+
+        # --- 3. Date (khusus Once, foto: 30/09/2026 + combo) ---
+        if alarm["tipe"] == "Once":
+            try:
+                import re as _re
+                want = ""
+                m = _re.search(r"\d{4}-\d{2}-\d{2}", ",".join(alarm.get("weekdays_en", [])) + " " + alarm.get("hari", ""))
+                if m:
+                    y, mo, d = m.group(0).split("-")
+                    want = f"{d}/{mo}/{y}"
+                combos = dlg.descendants(control_type="ComboBox")
+                # Date combo = yang teksnya mirip tanggal
+                dcombo = None
+                for c in combos:
+                    try:
+                        txt = c.window_text()
+                    except Exception:
+                        txt = ""
+                    if _re.search(r"\d{1,2}/\d{1,2}/\d{2,4}", txt):
+                        dcombo = c
+                        break
+                if dcombo is not None and want:
+                    dcombo.set_focus()
+                    try:
+                        dcombo.select(want)
+                    except Exception:
+                        send_keys("^a" + want + "{ENTER}")
+                    say(f"  [GUI] Date -> {want}")
+                else:
+                    say(f"  [GUI] Date dibiarkan default (mau {want or '-'})")
+            except Exception as e:
+                say(f"  [GUI] Date gagal ({str(e)[:120]})")
+            time.sleep(0.3)
+
+        # --- 4. Label (edit besar di bawah, foto: 'Alarm') ---
+        try:
+            edits = dlg.descendants(control_type="Edit")
+            ledit = None
+            try:
+                ledit = max(edits, key=lambda e: e.rectangle().height() * e.rectangle().width())
+            except Exception:
+                ledit = edits[-1] if edits else None
+            if ledit is not None:
+                ledit.set_focus()
+                ledit.set_edit_text(alarm["label"])
+                say(f"  [GUI] Label -> {alarm['label']}")
+        except Exception as e:
+            say(f"  [GUI] Label gagal ({str(e)[:120]})")
+        time.sleep(0.3)
+
+        # --- 5. Sound combo (foto: piano + Browse...) ---
+        try:
+            import re as _re
+            want = (alarm.get("suara") or "school").lower().replace(".mp3", "")
+            combos = dlg.descendants(control_type="ComboBox")
+            scombo = None
+            for c in combos:
+                try:
+                    txt = c.window_text()
+                except Exception:
+                    txt = ""
+                # lewati Date combo
+                if _re.search(r"\d{1,2}/\d{1,2}/\d{2,4}", txt):
+                    continue
+                scombo = c
+                break
+            if scombo is not None:
+                scombo.set_focus()
+                done = False
+                for how in ("select", "type"):
+                    try:
+                        if how == "select":
+                            texts = scombo.texts()
+                            match = next((t for t in texts if want in t.lower()), None)
+                            scombo.select(match or want)
+                        else:
+                            scombo.set_edit_text(want)
+                            send_keys("{ENTER}")
+                        done = True
+                        break
+                    except Exception:
+                        continue
+                say(f"  [GUI] Sound -> {want} ({'OK' if done else 'manual'})")
+        except Exception as e:
+            say(f"  [GUI] Sound gagal ({str(e)[:120]})")
+        time.sleep(0.4)
+
+        # --- 6. OK (foto: tombol OK biru) ---
+        try:
+            okb = dlg.child_window(title="OK", control_type="Button")
+            okb.wait("enabled", timeout=5)
+            try:
+                okb.click_input()
+            except Exception:
+                okb.click()
+            say("  [GUI] OK diklik")
+        except Exception as e:
+            say(f"  [GUI] Tombol OK gagal ({str(e)[:120]}), tekan OK manual")
+            return False
+        # tunggu dialog tertutup sebelum alarm berikutnya (anti-stuck)
+        try:
+            for _ in range(20):
+                time.sleep(0.3)
+                try:
+                    if not dlg.is_visible():
+                        break
+                except Exception:
+                    break
+            say("  [GUI] Dialog tertutup, lanjut")
+            return True
+        except Exception as e:
+            say(f"  [GUI ERROR] {e}")
+            return False
     except Exception as e:
-        print(f"  [GUI ERROR] {e}")
+        say(f"  [GUI ERROR] {e}")
         return False
 
 def hitung_alarm_di_app():
