@@ -1,0 +1,28 @@
+CARA PAKAI UNTUK CLIENT (tanpa Python)
+=====================================
+
+WINDOWS:
+1. Minta file AlarmExcel.exe ke admin (atau download dari GitHub Actions)
+2. Double-click AlarmExcel.exe
+   - Jika muncul "Windows protected your PC", klik More info > Run anyway
+3. Klik "Pilih..." > pilih file jadwal Excel (.xlsx)
+4. Klik "Muat" untuk lihat tabel
+5. Klik "Jalankan Alarm" untuk bel langsung dari aplikasi ini
+   ATAU klik "Kirim ke FreeAlarmClock" jika FreeAlarmClock terbuka
+   (pastikan FreeAlarmClock sudah di-install dari freealarmapp.com)
+
+MAC:
+1. Double-click AlarmExcel.app
+2. Jika muncul "unidentified developer": klik kanan > Open > Open
+3. Sama seperti di atas (tombol Windows nonaktif di Mac)
+
+FORMAT EXCEL:
+  Waktu (HH:MM) | Label | Hari | Tipe | Suara | Pesan
+  Contoh: 07:00 | Bel Masuk | Senin,Selasa,Rabu,Kamis,Jumat | Weekly | School.mp3
+
+  Tipe: Once / Daily / Weekly
+  Hari Weekly: Senin,Selasa,Rabu,Kamis,Jumat,Sabtu,Minggu
+    atau: Weekdays, Weekends, Setiap Hari
+  Hari Once: tanggal 2026-10-05
+
+File contoh: contoh_jadwal.xlsx (satu folder dengan aplikasi)

@@ -1,0 +1,5 @@
+openpyxl>=3.1.0
+# pywinauto hanya untuk Windows (otomasi FreeAlarmClock)
+pywinauto>=0.6.8; sys_platform == "win32"
+# pyinstaller hanya untuk build, tidak dibutuhkan client
+pyinstaller>=6.0.0

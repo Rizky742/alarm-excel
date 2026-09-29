@@ -1,0 +1,7 @@
+﻿20260930083900111011111011152 10<AlarmLabel>EWS > KAMAR 2.3</AlarmLabel><AlarmSound>twinkle</AlarmSound>
+20260930084000111011111011152 10<AlarmLabel>RJ > KAMAR 4.4</AlarmLabel><AlarmSound>cuckoo</AlarmSound>
+20260930090000111011111011152 10<AlarmLabel>EWS,RJ > KAMAR 1.2</AlarmLabel><AlarmSound>piano</AlarmSound>
+20260930100000111011111011152 10<AlarmLabel>RJ > KAMAR 3.B</AlarmLabel><AlarmSound>cuckoo</AlarmSound>
+20260930114400111011111011152 10<AlarmLabel>RJ > KAMAR 2.1</AlarmLabel><AlarmSound>cuckoo</AlarmSound>
+20260930120000111011111011152 10<AlarmLabel>RJ > KAMAR 1.A-1.2</AlarmLabel><AlarmSound>cuckoo</AlarmSound>
+20260930124500111011111011152 10<AlarmLabel>EWS,RJ > KAMAR 1.1-1.2-1.3-1.4,1.A</AlarmLabel><AlarmSound>cuckoo</AlarmSound>

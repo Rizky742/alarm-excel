@@ -1,0 +1,35 @@
+name: Build Desktop App
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pyinstaller
+      - run: python -m PyInstaller --noconfirm --clean --name "AlarmExcel" --windowed --onefile --add-data "contoh_jadwal.xlsx;." gui_alarm.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlarmExcel-Windows
+          path: dist/AlarmExcel.exe
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pyinstaller
+      - run: python -m PyInstaller --noconfirm --clean --name "AlarmExcel" --windowed --onedir --add-data "contoh_jadwal.xlsx:." gui_alarm.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlarmExcel-Mac
+          path: dist/AlarmExcel.app
