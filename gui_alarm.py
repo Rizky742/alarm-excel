@@ -233,7 +233,8 @@ class AlarmGUI:
             for i, a in enumerate(self.alarms, 1):
                 lines.append(alarm_ke_baris(a, datetime.now()))
                 self.set_progress(i, len(self.alarms))
-            Path(out).write_text("\ufeff" + "\r\n".join(lines) + "\r\n", encoding="utf-8")
+            with open(out, "w", encoding="utf-8-sig", newline="") as f:
+                f.write("\r\n".join(lines) + "\r\n")
             self.log_msg(f"OK: {len(lines)} alarm -> {out} (100%)\n")
             self.log_msg("Lanjut di FreeAlarmClock: File > Restore > pilih file itu.\n")
             messagebox.showinfo("Selesai 100%",

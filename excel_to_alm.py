@@ -90,7 +90,9 @@ def main():
         sys.exit(1)
     lines = [alarm_ke_baris(a, ref) for a in alarms]
     out = Path(args.output)
-    out.write_text("\ufeff" + "\r\n".join(lines) + "\r\n", encoding="utf-8")
+    # newline="" agar \r\n tidak digandakan jadi \r\r\n di Windows
+    with open(out, "w", encoding="utf-8-sig", newline="") as f:
+        f.write("\r\n".join(lines) + "\r\n")
     print(f"OK: {len(lines)} alarm -> {out} ({len(lines)*100//len(lines)}% selesai)")
     for l in lines:
         print(" ", l[:60] + "...")
