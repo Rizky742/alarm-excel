@@ -338,6 +338,33 @@ def parse_hari(hari_str, tipe):
 
 # ---------- Bagian otomasi Windows (pywinauto) ----------
 
+def cari_main_window(app=None):
+    """Cari jendela UTAMA FreeAlarmClock (bukan dialog). Atasi error '2 elements match'.
+
+    Strategi: ambil semua jendela visible yang judulnya cocok, pilih yang punya
+    tombol Add + menu File/Alarm (ciri main window)."""
+    from pywinauto import Desktop, Application
+    cands = Desktop(backend="uia").windows(title_re=".*Free Alarm Clock.*", visible_only=True)
+    if not cands:
+        # fallback: semua termasuk hidden
+        cands = Desktop(backend="uia").windows(title_re=".*Free Alarm Clock.*")
+    if not cands:
+        raise RuntimeError("Jendela 'Free Alarm Clock' tidak ditemukan.")
+    if len(cands) == 1:
+        return cands[0]
+    # Beberapa cocok (main + dialog) -> pilih yang punya tombol Add
+    for w in cands:
+        try:
+            if w.child_window(title_re="^Add.*", control_type="Button").exists(timeout=1):
+                return w
+        except Exception:
+            continue
+    # fallback: jendela paling besar / pertama
+    try:
+        return max(cands, key=lambda w: w.rectangle().width() * w.rectangle().height())
+    except Exception:
+        return cands[0]
+
 def inspect_gui():
     try:
         from pywinauto import Application
@@ -437,9 +464,7 @@ def tambah_satu_alarm_gui(main_win, alarm, delay=1.0):
 def hitung_alarm_di_app():
     """Coba baca jumlah alarm yang tampil di list utama (verifikasi). Kembalikan int atau None."""
     try:
-        from pywinauto import Application
-        app = Application(backend="uia").connect(title_re=".*Free Alarm Clock.*")
-        main = app.window(title_re=".*Free Alarm Clock.*")
+        main = cari_main_window()
         # List alarm biasanya berupa ListItem / DataItem per baris
         items = main.descendants(control_type="ListItem") or main.descendants(control_type="DataItem")
         # fallback: cari teks jam HH:MM di descendants
@@ -469,16 +494,37 @@ def run_otomasi(alarms, delay, on_progress=None, interactive=True, log=None):
             raise
         sys.exit(1)
     say("Menghubungi Free Alarm Clock (timeout 10 detik)...")
-    try:
-        app = Application(backend="uia").connect(title_re=".*Free Alarm Clock.*", timeout=10)
-    except Exception as e:
-        say(f"GAGAL terhubung: {e}")
-        say(" Checklist: 1) FreeAlarmClock.exe sudah dibuka? 2) Judul jendela 'Free Alarm Clock'?")
+    main = None
+    last_err = None
+    for _ in range(2):
+        try:
+            from pywinauto import Application
+            # connect ke proses dulu (tidak ambigu), baru cari main window
+            try:
+                app = Application(backend="uia").connect(path="FreeAlarmClock.exe", timeout=10)
+                main = cari_main_window(app)
+            except Exception:
+                app = Application(backend="uia").connect(title_re=".*Free Alarm Clock.*", timeout=10)
+                main = cari_main_window(app)
+            break
+        except Exception as e:
+            last_err = e
+            s = str(e)
+            if "elements that match" in s or "Ambiguous" in s:
+                try:
+                    main = cari_main_window()
+                    break
+                except Exception as e2:
+                    last_err = e2
+            import time as _t
+            _t.sleep(1)
+    if main is None:
+        say(f"GAGAL terhubung: {last_err}")
+        say(" Checklist: 1) FreeAlarmClock.exe sudah dibuka? 2) Tutup dialog Add yang terbuka, sisakan 1 main window.")
         say(" 3) Bahasa UI English? 4) Jalankan AlarmExcel sebagai Administrator bila perlu.")
         if not interactive:
-            raise
+            raise RuntimeError(str(last_err))
         sys.exit(1)
-    main = app.window(title_re=".*Free Alarm Clock.*")
     try:
         main.set_focus()
     except Exception as e:
